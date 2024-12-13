@@ -1,0 +1,75 @@
+network:
+  version: 2
+
+  # Ethernet interface configuration (enp0s31f6)
+  ethernets:
+    enp0s31f6:
+     mtu: 9000
+
+  # Bonding configuration for Ethernet interfaces (enp0s31f6)
+  bonds:
+    bond0:
+      interfaces:
+        - enp0s31f6  # Ethernet interface added here for bonding
+      mtu: 9000
+      parameters:
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        mode: 802.3ad
+        transmit-hash-policy: layer3+4
+
+  # VLAN configuration for the bond interface
+  vlans:
+    bond0.10:
+      id: 10
+      link: bond0
+    bond0.20:
+      id: 20
+      link: bond0
+    bond0.30:
+      id: 30
+      link: bond0
+    bond0.40:
+      id: 40
+      link: bond0
+
+  # Bridge configuration
+  bridges:
+    br-mgmt:
+      addresses:
+        - 172.29.236.10/22  # Static IP for the management bridge
+      interfaces:
+        - bond0.10  # VLAN 10 on the bond interface
+      mtu: 9000
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+        search:
+          - example.com
+
+    br-storage:
+      addresses:
+        - 172.21.244.10/22  # Static IP for the storage bridge
+      interfaces:
+        - bond0.20  # VLAN 20 on the bond interface
+      mtu: 9000
+      openvswitch: {}
+
+    br-vxlan:
+      addresses:
+        - 172.29.240.10/22  # Static IP for the VXLAN bridge
+      interfaces:
+        - bond0.30  # VLAN 30 on the bond interface
+      mtu: 9000
+
+    br-ext:
+      addresses:
+        - 192.1.1.10/22  # Static IP for the external bridge
+      interfaces:
+        - bond0.40  # VLAN 40 on the bond interface
+      gateway4: 192.1.1.1
+    br-vlan:
+      interfaces:
+        - bond0  # All VLANs are on the bond interface
+      mtu: 9000
