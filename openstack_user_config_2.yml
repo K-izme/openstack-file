@@ -1,0 +1,182 @@
+# openstack_setup.yml
+
+# Define the target hosts for various OpenStack services
+openstack_services:
+  # Shared Infrastructure Hosts (e.g., Database, RabbitMQ, Memcached)
+  shared-infra_hosts:
+    target:
+      ip: 192.168.1.248
+#  memcached_hosts:
+#    target:
+#      ip: 192.168.1.248
+#  galera_hosts:
+#    target:
+#      ip: 192.168.1.248
+#  rabbitmq_hosts:
+#    target:
+#      ip: 192.168.1.248
+  # Package Repository Hosts (for software updates)
+  repo-infra_hosts:
+    target:
+      ip: 192.168.1.248
+
+  # OpenStack Infrastructure Hosts (Glance API, Nova API, Heat API, Horizon)
+  os-infra_hosts:
+    target:
+      ip: 192.168.1.248
+
+  # Identity Service (Keystone)
+  identity_hosts:
+    target:
+      ip: 192.168.1.248
+
+  # Network Service (Neutron API, L3 agents, DHCP agents, etc.)
+  network_hosts:
+    target:
+      ip: 192.168.1.248
+
+  # Storage Infrastructure Hosts (for Cinder API)
+  storage-infra_hosts:
+    target:
+      ip: 192.168.1.248
+
+  # Storage Hosts (for Cinder volumes, etc.)
+  storage_hosts:
+    lvm-storage1:
+      ip: 192.168.1.248
+
+  # Compute Hosts (Nova Compute service)
+  compute_hosts:
+    target:
+      ip: 192.168.1.248
+
+# Services Configuration
+services:
+  # Keystone Configuration
+  keystone:
+    admin_token: "ADMIN_TOKEN"
+    db_password: "keystone_db_password"
+    admin_password: "keystone_admin_password"
+    public_url: "http://192.168.1.248:5000/v3"
+    internal_url: "http://192.168.1.248:5000/v3"
+    admin_url: "http://192.168.1.248:35357/v3"
+
+  # Glance Configuration
+  glance:
+    db_password: "glance_db_password"
+    api_server_url: "http://192.168.1.248:9292"
+    registry_server_url: "http://192.168.1.248:9191"
+
+  # Nova Configuration
+  nova:
+    db_password: "nova_db_password"
+    api_server_url: "http://192.168.1.248:8774/v2"
+    compute_service_name: "nova-compute"
+
+  # Neutron Configuration
+  neutron:
+    db_password: "neutron_db_password"
+    api_server_url: "http://192.168.1.248:9696"
+    plugin: "ml2"
+    ml2_drivers:
+      type_drivers: "flat,vlan"
+      tenant_network_types: "vlan"
+      mechanism_drivers: "openvswitch"
+    dhcp_agents:
+      - "dhcp-agent1"
+      - "dhcp-agent2"
+
+  # Cinder Configuration
+  cinder:
+    db_password: "cinder_db_password"
+    volume_backend_name: "LVM"
+    volume_driver: "cinder.volume.drivers.lvm.LVMVolumeDriver"
+    volume_group: "cinder-volumes"
+    iscsi_ip_address: "192.168.1.248"
+
+# Define additional settings for network and storage backend
+cidr_networks:
+    management: 192.168.1.0/24
+    tunnel: 172.29.240.0/22
+    storage: 172.29.244.0/22
+    container: 172.29.248.0/22  # Added container network CIDR
+
+storage:
+  cinder_backend:
+    volume_driver: "cinder.volume.drivers.lvm.LVMVolumeDriver"
+    iscsi_ip_address: "192.168.1.248"
+    volume_group: "cinder-volumes"
+    volume_backend_name: "LVM"
+
+# Optional: HAProxy configuration for load balancing (if using HAProxy)
+load_balancer_hosts:
+  lb1:
+    ip: 192.168.1.248
+global_overrides:
+  # Specify any overrides that need to be applied globally
+  ansible_ssh_user: "ubuntu"
+  internal_lb_vip_address: "172.29.236.10"
+  external_lb_vip_address: "192.168.1.248"
+  ansible_become: true
+  galera_root_password: secrete
+  management_bridge: br-mgmt
+  rabbitmq_cookie_token: secrete
+  ansible_become_user: "root"
+  ansible_become_method: "sudo"
+  ansible_python_interpreter: "/usr/bin/python3"
+  ansible_connection: "ssh"
+  ansible_ssh_private_key_file: "/home/deployment/.ssh/my_ed25519_key"
+  ansible_become_password: "ubuntu"  # Set sudo password here
+  openstack_release: "ussuri"  # Update with your desired OpenStack release
+  provider_networks:
+    - network:
+        group_binds:
+          - all_containers
+          - hosts
+        type: "raw"
+        container_bridge: "br-mgmt"
+        container_interface: "eth1"
+        container_type: "veth"
+        ip_from_q: "management"
+        is_management_address: true
+    - network:
+        group_binds:
+          - glance_api
+          - cinder_api
+          - cinder_volume
+          - nova_compute
+        type: "raw"
+        container_bridge: "br-storage"
+        container_type: "veth"
+        container_interface: "eth2"
+        container_mtu: "9000"
+        ip_from_q: "storage"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        container_mtu: "9000"
+        ip_from_q: "tunnel"
+        type: "vxlan"
+        range: "1:1000"
+        net_name: "vxlan"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth11"
+        type: "vlan"
+        range: "101:200,301:400"
+        net_name: "physnet1"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth12"
+        host_bind_override: "eth12"
+        type: "flat"
+        net_name: "physnet2"
