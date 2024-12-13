@@ -1,0 +1,93 @@
+## Debugging settings
+debug: true
+
+## Service setup host
+openstack_service_setup_host: "{{ groups['utility_all'][0] }}"
+openstack_service_setup_host_python_interpreter: "/openstack/venvs/utility-{{ openstack_release }}/bin/python"
+galera_root_password: secrete
+# management_bridge: br-mgmt
+rabbitmq_cookie_token: secrete
+container_networks:
+  management_address:
+     address: 172.29.236.10
+     netmask: 255.255.252.0
+
+#    inet 10.0.3.1/24 brd 10.0.3.255 scope global lxcbr0
+
+## Installation method for OpenStack services
+install_method: source
+
+## Glance configuration
+glance_default_store: file
+glance_rbd_store_pool: images
+glance_rbd_store_chunk_size: 8
+
+## Swift configuration if using Swift backend
+# glance_swift_store_auth_version: 3
+# glance_swift_store_auth_address: "https://some.auth.url.com"
+# glance_swift_store_user: "OPENSTACK_TENANT_ID:OPENSTACK_USER_NAME"
+# glance_swift_store_key: "OPENSTACK_USER_PASSWORD"
+# glance_swift_store_container: "NAME_OF_SWIFT_CONTAINER"
+# glance_swift_store_region: "NAME_OF_REGION"
+
+## Nova configuration
+nova_libvirt_images_rbd_pool: vms
+dhcp_domain: openstacklocal
+
+## Ceph configuration (if using Ceph backend for Glance or Nova)
+ceph_mons:
+  - 192.168.1.10
+  - 192.168.1.11
+  - 192.168.1.12
+
+ceph_conf_file: |
+  [global]
+  fsid = 00000000-1111-2222-3333-444444444444
+  mon_initial_members = mon1.example.local,mon2.example.local,mon3.example.local
+  mon_host = 192.168.1.10,192.168.1.11,192.168.1.12
+  auth_cluster_required = cephx
+  auth_service_required = cephx
+
+## RabbitMQ settings
+rabbitmq_use_ssl: true
+rabbitmq_monitoring_userid: monitoring
+
+## Proxy settings (not using a proxy as per your request)
+#proxy_env_url: ""
+
+## Internal and external LB VIPs (define them explicitly)
+#internal_lb_vip_address: "192.168.1.10"  # Replace with your actual internal LB VIP address
+#external_lb_vip_address: "192.168.1.20"  # Replace with your actual external LB VIP address
+container_tech: "lxc"
+ansible_host: "192.168.1.248"
+physical_host: "192.168.1.248"
+
+#no_proxy_env: "localhost,127.0.0.1,{{ internal_lb_vip_address }},{{ external_lb_vip_address }},{{ groups['all_containers'] | map(attribute='management_address') | join(',') }}"
+
+#global_environment_variables:
+#  no_proxy: "localhost,127.0.0.1,{{ internal_lb_vip_address }},{{ external_lb_vip_address }},{{ groups['keystone_all'] | map(attribute='management_address') | join(',') }}"
+
+#deployment_environment_variables:
+#  no_proxy: "localhost,127.0.0.1,{{ internal_lb_vip_address }},{{ external_lb_vip_address }},{{ groups['keystone_all'] | map(attribute='management_address') | join(',') }}"
+
+## SSH connection delay (if needed)
+ssh_delay: 5
+
+## HAProxy and Keepalived configuration
+# haproxy_use_keepalived: true
+# haproxy_keepalived_external_vip_cidr: "192.168.0.4/32"
+# haproxy_keepalived_internal_vip_cidr: "172.29.236.54/32"
+# haproxy_keepalived_external_virtual_router_id: 10
+# haproxy_keepalived_internal_virtual_router_id: 11
+# haproxy_keepalived_priority_master: 100
+# haproxy_keepalived_priority_backup: 20
+#keepalived_external_ping_address: "192.0.2.1"
+#keepalived_internal_ping_address: "192.168.0.1"
+memcached_servers: |-
+    {% set service_controller_group = group_names | select('regex', '.*-host_containers') | first | default('memcached') %}
+    {{
+      groups['memcached'] | intersect(groups[service_controller_group])
+        | map('extract', hostvars, 'management_address')
+        | map('regex_replace', '(.+)', '\1:' ~ memcached_port)
+        | list | join(',')
+    }}
