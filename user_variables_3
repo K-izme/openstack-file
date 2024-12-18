@@ -1,0 +1,52 @@
+# Keystone Service Configuration
+internal_lb_vip_address: controller
+# external_lb_vip_address
+keystone_service_internaluri_proto: http
+keystone_service_port: 5000
+keystone_service_internaluri: >-
+  {{ keystone_service_internaluri_proto }}://
+  {{ internal_lb_vip_address }}:{{ keystone_service_port }}
+
+# Nova Service Configuration
+nova_cpu_allocation_ratio: 10.0
+nova_ram_allocation_ratio: 1.2
+nova_virt_type: "kvm"
+nova_enable_live_migration: true
+
+# Nova acess control via UID, GUI (check: id username)
+nova_system_user_uid: 1001  # Sync UID for shared storage
+nova_system_group_gid: 1001  # Sync GID for shared storage
+
+openstack_service_setup_host: "{{ groups['utility_all'][0] }}"
+openstack_service_setup_host_python_interpreter: "/openstack/venvs/utility-{{ openstack_release }}/bin/python"
+galera_root_password: secrete
+# management_bridge: br-mgmt
+rabbitmq_cookie_token: secrete
+rabbitmq_env_use_longname: true
+container_name: "openstack-container"
+container_networks:
+  management_address:
+     address: 172.29.236.10
+     netmask: 255.255.252.0
+
+galera_address: 172.29.236.10
+
+install_method: source
+
+## Glance configuration
+glance_default_store: file
+glance_rbd_store_pool: images
+glance_rbd_store_chunk_size: 8
+
+container_tech: "lxc"
+#ansible_host: controller
+physical_host: controller
+
+memcached_servers: |-
+    {% set service_controller_group = group_names | select('regex', '.*-host_containers') | first | default('memcached') %}
+    {{
+      groups['memcached'] | intersect(groups[service_controller_group])
+        | map('extract', hostvars, 'management_address')
+        | map('regex_replace', '(.+)', '\1:' ~ memcached_port)
+        | list | join(',')
+    }}
