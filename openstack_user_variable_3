@@ -1,0 +1,122 @@
+# openstack_setup.yml
+
+# Define the target hosts for various OpenStack services
+openstack_services:
+  # Shared Infrastructure Hosts (e.g., Database, RabbitMQ, Memcached)
+  shared-infra_hosts:
+    target1:
+      ip: controller
+    target2:
+      ip: compute
+  # Package Repository Hosts (for software updates)
+  repo-infra_hosts:
+    target:
+      ip: controller
+
+  # OpenStack Infrastructure Hosts (Glance API, Nova API, Heat API, Horizon)
+  os-infra_hosts:
+    target:
+      ip: controller
+
+  # Identity Service (Keystone)
+  identity_hosts:
+    target:
+      ip: controller
+
+  # Compute Hosts (Nova Compute service)
+  compute_hosts:
+    target:
+      ip: compute
+
+# Services Configuration
+services:
+  # Keystone Configuration
+  keystone:
+    admin_token: "ADMIN_TOKEN"
+    db_password: "keystone_db_password"
+    admin_password: "keystone_admin_password"
+    public_url: "http://controller:5000/v3"
+    internal_url: "http://controller:5000/v3"
+    admin_url: "http://controller:35357/v3"
+
+  # Nova Configuration
+  nova:
+    db_password: "nova_db_password"
+    api_server_url: "http://compute:8774/v2"
+    compute_service_name: "nova-compute"
+
+  horizon:
+    dashboard_url: "http://controller/dashboard"
+    session_timeout: 1800  # in seconds
+    allowed_hosts:
+      - "*"
+    keystone_url: "http://controller:5000/v3"
+    time_zone: "UTC"
+
+# Define additional settings for network and storage backend
+cidr_networks:
+    management: 192.168.1.0/24
+    tunnel: 172.29.240.0/22
+    storage: 172.29.244.0/22
+
+# Optional: HAProxy configuration for load balancing (if using HAProxy)
+global_overrides:
+  # Specify any overrides that need to be applied globally
+  galera_root_password: secrete
+  rabbitmq_env_use_longname: true
+  rabbitmq_cookie_token: secrete
+  container_networks:
+    management_address:
+       address: 172.29.236.10
+       netmask: 255.255.252.0
+  management_bridge: br-mgmt
+  openstack_release: "ussuri"  # Update with your desired OpenStack release
+  provider_networks:
+    - network:
+        group_binds:
+          - all_containers
+          - hosts
+        type: "raw"
+        container_bridge: "br-mgmt"
+        container_interface: "eth1"
+        container_type: "veth"
+        ip_from_q: "management"
+        is_management_address: true
+    - network:
+        group_binds:
+          - nova_compute
+        type: "raw"
+        container_bridge: "br-storage"
+        container_type: "veth"
+        container_interface: "eth2"
+        container_mtu: "9000"
+        ip_from_q: "storage"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        container_mtu: "9000"
+        ip_from_q: "tunnel"
+        type: "vxlan"
+        range: "1:1000"
+        net_name: "vxlan"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth11"
+        type: "vlan"
+        range: "101:200,301:400"
+        net_name: "physnet1"
+    - network:
+        group_binds:
+          - neutron_linuxbridge_agent
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth12"
+        host_bind_override: "eth12"
+        type: "flat"
+        net_name: "physnet2"
